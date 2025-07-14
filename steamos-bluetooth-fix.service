@@ -1,0 +1,68 @@
+[Unit]
+Description=SteamOS Bluetooth Fix Service
+Documentation=man:systemd.service(5)
+After=bluetooth.service dbus.service
+Wants=bluetooth.service
+BindsTo=bluetooth.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/steamos_bluetooth_fix.sh
+TimeoutStartSec=630
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+
+# Security hardening - run as bluetooth user
+User=bluetooth
+Group=bluetooth
+
+# Minimal capabilities for Bluetooth operations
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=true
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@debug @mount @cpu-emulation @obsolete @privileged @reboot @swap @raw-io
+SystemCallErrorNumber=EPERM
+
+# Filesystem restrictions
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ReadWritePaths=/var/log
+ReadOnlyPaths=/sys/class/bluetooth /sys/class/rfkill
+
+# Device access
+PrivateDevices=false
+DevicePolicy=closed
+DeviceAllow=/dev/rfkill rw
+DeviceAllow=char-bluetooth rw
+
+# Network and memory restrictions
+RestrictAddressFamilies=AF_UNIX AF_BLUETOOTH AF_NETLINK
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryMax=64M
+TasksMax=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=steamos-bluetooth-fix
+
+# Environment
+PrivateTmp=true
+RemoveIPC=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
