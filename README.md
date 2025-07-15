@@ -1,6 +1,6 @@
 # SteamOS Bluetooth Fix
 
-A robust systemd service that automatically enables Bluetooth on SteamOS systems where it may not initialize properly at boot.
+When running Steam with -steamos3 bluetooth can become disabled. So this watches for Steam with that flag to re-enable bluetooth should that happen. 
 
 ## Overview
 
@@ -178,12 +178,6 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built for the SteamOS community
-- Inspired by common Bluetooth initialization issues on handheld gaming devices
-- Uses standard Linux Bluetooth tools (BlueZ, rfkill)
 
 ## Support
 
