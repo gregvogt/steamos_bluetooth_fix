@@ -3,6 +3,8 @@
 # Configuration
 readonly INTERVAL=5                # seconds between checks
 readonly MAX_TIME=600              # maximum time to run in seconds (10 minutes)
+readonly STEAM_CHECK_INTERVAL=1    # seconds between Steam checks
+readonly STEAM_WAIT_TIME=10        # seconds to wait after Steam is detected
 readonly SCRIPT_NAME="steamos_bluetooth_fix"
 
 # Global variables
@@ -50,6 +52,57 @@ validate_config() {
         log_message "ERROR" "Invalid MAX_TIME value: $MAX_TIME"
         exit 1
     fi
+    
+    if ! [[ "$STEAM_CHECK_INTERVAL" =~ ^[0-9]+$ ]] || [ "$STEAM_CHECK_INTERVAL" -lt 1 ]; then
+        log_message "ERROR" "Invalid STEAM_CHECK_INTERVAL value: $STEAM_CHECK_INTERVAL"
+        exit 1
+    fi
+    
+    if ! [[ "$STEAM_WAIT_TIME" =~ ^[0-9]+$ ]] || [ "$STEAM_WAIT_TIME" -lt 1 ]; then
+        log_message "ERROR" "Invalid STEAM_WAIT_TIME value: $STEAM_WAIT_TIME"
+        exit 1
+    fi
+}
+
+# Check if Steam is running with -steamos3 flag
+is_steam_running() {
+    if pgrep -f "steam.*-steamos3" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# Wait for Steam to be running with -steamos3 flag
+wait_for_steam() {
+    log_message "INFO" "Waiting for Steam to start with -steamos3 flag..."
+    
+    while [ "$elapsed" -lt "$MAX_TIME" ]; do
+        if is_steam_running; then
+            log_message "INFO" "Steam detected with -steamos3 flag at ${elapsed}s"
+            log_message "INFO" "Waiting ${STEAM_WAIT_TIME} seconds for Steam to initialize..."
+            
+            # Wait for Steam to initialize, but respect MAX_TIME
+            local remaining_time=$((MAX_TIME - elapsed))
+            local wait_time=$((STEAM_WAIT_TIME < remaining_time ? STEAM_WAIT_TIME : remaining_time))
+            
+            sleep "$wait_time"
+            elapsed=$((elapsed + wait_time))
+            
+            if [ "$elapsed" -ge "$MAX_TIME" ]; then
+                log_message "ERROR" "Maximum time reached while waiting for Steam initialization"
+                exit 1
+            fi
+            
+            log_message "INFO" "Steam initialization wait complete, proceeding with Bluetooth fix"
+            return 0
+        fi
+        
+        sleep "$STEAM_CHECK_INTERVAL"
+        elapsed=$((elapsed + STEAM_CHECK_INTERVAL))
+    done
+    
+    log_message "ERROR" "Maximum time reached while waiting for Steam to start"
+    exit 1
 }
 
 # Check if Bluetooth is already enabled
@@ -196,6 +249,9 @@ main() {
     
     # Check available commands
     check_commands
+    
+    # Wait for Steam to be running with -steamos3 flag
+    wait_for_steam
     
     # Quick check if already enabled
     if is_bluetooth_enabled; then
