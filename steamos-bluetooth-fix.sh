@@ -4,23 +4,57 @@
 readonly INTERVAL=5                # seconds between checks
 readonly MAX_TIME=600              # maximum time to run in seconds (10 minutes)
 readonly STEAM_CHECK_INTERVAL=1    # seconds between Steam checks
-readonly STEAM_WAIT_TIME=10        # seconds to wait after Steam is detected
+readonly STEAM_WAIT_TIME=30        # seconds to wait after Steam is detected
 readonly SCRIPT_NAME="steamos_bluetooth_fix"
 
 # Global variables
 elapsed=0
 commands_available=()
+running_in_systemd=false
 
 # Logging function with error handling
 log_message() {
     local level="$1"
     local message="$2"
     
-    # Try logger first, fallback to echo
-    if command -v logger >/dev/null 2>&1; then
-        logger -t "$SCRIPT_NAME" "[$level] $message" || echo "[$level] $message" >&2
+    # Adjust logging based on execution environment
+    if [[ "$running_in_systemd" == "true" ]]; then
+        # Running in systemd - use logger for journal integration
+        if command -v logger >/dev/null 2>&1; then
+            logger -t "$SCRIPT_NAME" "[$level] $message" || echo "[$level] $message" >&2
+        else
+            echo "[$level] $message" >&2
+        fi
     else
-        echo "[$level] $message" >&2
+        # Running in terminal - output to stderr with timestamp
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" >&2
+    fi
+}
+
+# Detect execution environment (systemd vs terminal)
+detect_execution_environment() {
+    # Check multiple indicators for systemd execution
+    if [[ -n "${INVOCATION_ID:-}" ]] || [[ -n "${JOURNAL_STREAM:-}" ]]; then
+        # INVOCATION_ID and JOURNAL_STREAM are set by systemd
+        running_in_systemd=true
+    elif [[ "${1:-}" == "--systemd" ]]; then
+        # Allow manual override
+        running_in_systemd=true
+    elif [[ -t 0 ]] && [[ -t 1 ]] && [[ -t 2 ]]; then
+        # All standard streams are connected to a terminal
+        running_in_systemd=false
+    elif [[ -z "${TERM:-}" ]] && [[ -z "${SSH_TTY:-}" ]]; then
+        # No terminal environment variables - likely systemd
+        running_in_systemd=true
+    else
+        # Default to terminal mode if uncertain
+        running_in_systemd=false
+    fi
+    
+    if [[ "$running_in_systemd" == "true" ]]; then
+        log_message "INFO" "Detected systemd execution environment"
+    else
+        log_message "INFO" "Detected terminal execution environment"
     fi
 }
 
@@ -242,6 +276,9 @@ enable_bluetooth_rfkill() {
 
 # Main execution
 main() {
+    # Detect execution environment first
+    detect_execution_environment "$@"
+    
     log_message "INFO" "Starting SteamOS Bluetooth fix script"
     
     # Validate configuration

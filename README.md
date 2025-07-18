@@ -2,6 +2,7 @@
 
 When running Steam with -steamos3 bluetooth can become disabled. So this watches for Steam with that flag to re-enable bluetooth should that happen. 
 
+(Systemd service not working right now, likely a permission issue with the hardened service file. Script itself works when running as root.)
 ## Overview
 
 This tool addresses common Bluetooth initialization issues on SteamOS by providing a reliable service that monitors and enables Bluetooth using multiple fallback methods. It's designed to be secure, lightweight, and compatible with SteamOS's read-only filesystem approach.
